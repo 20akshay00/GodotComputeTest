@@ -5,6 +5,7 @@
 [ext_resource type="Script" path="res://dispatcher.gd" id="4_f11e6"]
 
 [sub_resource type="FastNoiseLite" id="FastNoiseLite_jiv5y"]
+frequency = 0.1
 
 [sub_resource type="NoiseTexture2D" id="NoiseTexture2D_owik6"]
 width = 1024
@@ -26,8 +27,9 @@ material = SubResource("ShaderMaterial_n2y5k")
 offset_right = 1920.0
 offset_bottom = 1080.0
 
-[node name="Dispatcher" type="Node" parent="." node_paths=PackedStringArray("_renderer")]
+[node name="Dispatcher" type="Node2D" parent="." node_paths=PackedStringArray("_renderer")]
 script = ExtResource("4_f11e6")
+update_frequency = 20
 auto_start = false
 _grid_height = 100
 _compute_shader_path = "res://game_of_life.glsl"

@@ -1,11 +1,10 @@
 @tool
-extends Node
+extends Node2D
 
 @export_category("Settings")
 @export_range(1, 1000) var update_frequency: int = 30
 @export var auto_start: bool = true
 @export var initial_data_texture: Texture2D
-
 
 var _grid_width: int
 @export var aspect_ratio: float = 1920./1080.
@@ -42,6 +41,10 @@ var _can_process: bool = false
 
 var _texture_usage: RenderingDevice.TextureUsageBits = RenderingDevice.TextureUsageBits.TEXTURE_USAGE_STORAGE_BIT | RenderingDevice.TextureUsageBits.TEXTURE_USAGE_CAN_UPDATE_BIT | RenderingDevice.TextureUsageBits.TEXTURE_USAGE_CAN_COPY_FROM_BIT
 
+# user interactivity
+var _points_to_place: Array[Vector2i] = []
+var _points_to_remove: Array[Vector2i] = []
+
 func _ready() -> void:
 	_renderer.material.set_shader_parameter("gridSize", Vector2i(_grid_width, _grid_height))
 	create_and_validate_image()
@@ -53,7 +56,26 @@ func _ready() -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST || what == NOTIFICATION_PREDELETE:
 		clean_up_gpu()
+
+func _process(delta: float) -> void:
+	if not _is_processing and _can_process:
+		_is_processing = true
+		update()
+		render()
+		get_tree().create_timer(1./update_frequency).timeout.connect(func(): _is_processing = false)
+		
+	if Input.is_action_just_pressed("start"):
+		_can_process = not _can_process
 	
+	if Input.is_action_pressed("remove"):
+		var cell_idx := Vector2i(float(_grid_height)/1080. * get_global_mouse_position()) 
+		if not (cell_idx.x < 0 or cell_idx.x >= _grid_width or cell_idx.y < 0 or cell_idx.y >= _grid_height):
+			_queue_remove_point(cell_idx)
+	elif Input.is_action_pressed("place"):
+		var cell_idx := Vector2i(float(_grid_height)/1080. * get_global_mouse_position()) 
+		if not (cell_idx.x < 0 or cell_idx.x >= _grid_width or cell_idx.y < 0 or cell_idx.y >= _grid_height):
+			_queue_place_point(cell_idx)
+
 func merge_images() -> void:
 	var output_width: int = _output_image.get_width()
 	var output_height: int = _output_image.get_height()
@@ -156,16 +178,6 @@ func setup_compute_shader() -> void:
 	create_texture_formats()
 	create_uniforms()
 
-func _process(delta: float) -> void:
-	if not _is_processing and _can_process:
-		_is_processing = true
-		update()
-		render()
-		get_tree().create_timer(1./update_frequency).timeout.connect(func(): _is_processing = false)
-		
-	if Input.is_action_just_pressed("start"):
-		_can_process = not _can_process
-
 func update() -> void:
 	var compute_list := _rd.compute_list_begin()
 	_rd.compute_list_bind_compute_pipeline(compute_list, _pipeline)
@@ -177,10 +189,11 @@ func update() -> void:
 func render() -> void:
 	_rd. sync ()
 	var bytes := _rd.texture_get_data(_output_texture, 0)
+	bytes = _place_and_remove_points(bytes)
 	_rd.texture_update(_input_texture, 0, bytes)
 	_output_image.set_data(_grid_width, _grid_height, false, Image.FORMAT_L8, bytes)
 	_render_texture.update(_output_image)
-
+ 
 func clean_up_gpu() -> void:
 	process_mode = PROCESS_MODE_DISABLED
 	if _rd == null: return
@@ -191,3 +204,20 @@ func clean_up_gpu() -> void:
 	_rd.free_rid(_compute_shader)
 	_rd.free()
 	_rd = null
+
+func _queue_place_point(point: Vector2i) -> void:
+	_points_to_place.append(point)
+
+func _queue_remove_point(point: Vector2i) -> void:
+	_points_to_remove.append(point)
+
+func _place_and_remove_points(data: PackedByteArray) -> PackedByteArray:
+	while(_points_to_place):
+		var point: Vector2i = _points_to_place.pop_back()
+		data[_grid_width * point.y + point.x] = 255
+
+	while(_points_to_remove):
+		var point: Vector2i = _points_to_remove.pop_back()
+		data[_grid_width * point.y + point.x] = 0
+
+	return data
