@@ -4,7 +4,9 @@ extends Node2D
 @export_category("Settings")
 @export_range(1, 1000) var update_frequency: int = 30
 @export var auto_start: bool = true
-@export var initial_data_texture: Texture2D
+
+var _prev_data := PackedByteArray()
+var _initial_data := PackedByteArray()
 
 var _grid_width: int
 @export var aspect_ratio: float = 1920./1080.
@@ -51,7 +53,7 @@ func _ready() -> void:
 	setup_compute_shader()
 	
 	if not auto_start: return
-	_can_process = true
+	_can_process = true  
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST || what == NOTIFICATION_PREDELETE:
@@ -61,9 +63,9 @@ func _process(delta: float) -> void:
 	if not _is_processing and _can_process:
 		_is_processing = true
 		update()
-		render()
 		get_tree().create_timer(1./update_frequency).timeout.connect(func(): _is_processing = false)
-		
+		render(true)
+		 
 	if Input.is_action_just_pressed("start"):
 		_can_process = not _can_process
 	
@@ -71,10 +73,13 @@ func _process(delta: float) -> void:
 		var cell_idx := Vector2i(float(_grid_height)/1080. * get_global_mouse_position()) 
 		if not (cell_idx.x < 0 or cell_idx.x >= _grid_width or cell_idx.y < 0 or cell_idx.y >= _grid_height):
 			_queue_remove_point(cell_idx)
+			if not _can_process: render(false)
+
 	elif Input.is_action_pressed("place"):
 		var cell_idx := Vector2i(float(_grid_height)/1080. * get_global_mouse_position()) 
 		if not (cell_idx.x < 0 or cell_idx.x >= _grid_width or cell_idx.y < 0 or cell_idx.y >= _grid_height):
 			_queue_place_point(cell_idx)
+			if not _can_process: render(false)
 
 func merge_images() -> void:
 	var output_width: int = _output_image.get_width()
@@ -103,14 +108,14 @@ func link_output_texture_to_renderer() -> void:
 
 func create_and_validate_image() -> void:
 	_output_image = Image.create(_grid_width, _grid_height, false, Image.FORMAT_L8)
-	if initial_data_texture == null:
+	if _initial_data.is_empty():
 		var noise := FastNoiseLite.new()
 		noise.frequency = 0.1
 		noise.seed = randi()
 		
 		_input_image = noise.get_image(_grid_width, _grid_height)
 	else:
-		_input_image = initial_data_texture.get_image()
+		var _image = Image.create_from_data(_grid_width, _grid_height, false, Image.FORMAT_L8, _initial_data)
 		
 	merge_images()
 	link_output_texture_to_renderer()
@@ -186,12 +191,25 @@ func update() -> void:
 	_rd.compute_list_end()
 	_rd.submit()
 
-func render() -> void:
-	_rd. sync ()
-	var bytes := _rd.texture_get_data(_output_texture, 0)
-	bytes = _place_and_remove_points(bytes)
-	_rd.texture_update(_input_texture, 0, bytes)
-	_output_image.set_data(_grid_width, _grid_height, false, Image.FORMAT_L8, bytes)
+func render(retrieve_from_gpu: bool) -> void:
+	if retrieve_from_gpu: # if unpaused
+		_rd.sync()
+		if not _initial_data.is_empty(): # if just unpaused, set input from new initial condition
+			_prev_data = _initial_data
+			_initial_data = PackedByteArray()
+		else:
+			_prev_data = _place_and_remove_points(_rd.texture_get_data(_output_texture, 0))
+		
+		_rd.texture_update(_input_texture, 0, _prev_data)
+		_output_image.set_data(_grid_width, _grid_height, false, Image.FORMAT_L8, _prev_data)
+	else: # if paused
+		if _initial_data.is_empty(): # if just paused, take snapshot of output
+			_initial_data = _rd.texture_get_data(_output_texture, 0)
+		
+		# add and remove points while paused
+		_initial_data = _place_and_remove_points(_initial_data)
+		_output_image.set_data(_grid_width, _grid_height, false, Image.FORMAT_L8, _initial_data)
+
 	_render_texture.update(_output_image)
  
 func clean_up_gpu() -> void:
