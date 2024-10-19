@@ -40,7 +40,7 @@ var _output_format: RDTextureFormat
 var _is_processing: bool = false
 var _can_process: bool = false 
 
-var _texture_usage: RenderingDevice.TextureUsageBits = RenderingDevice.TextureUsageBits.TEXTURE_USAGE_STORAGE_BIT | RenderingDevice.TextureUsageBits.TEXTURE_USAGE_CAN_UPDATE_BIT | RenderingDevice.TextureUsageBits.TEXTURE_USAGE_CAN_COPY_FROM_BIT
+var _texture_usage := (RenderingDevice.TextureUsageBits.TEXTURE_USAGE_STORAGE_BIT | RenderingDevice.TextureUsageBits.TEXTURE_USAGE_CAN_UPDATE_BIT | RenderingDevice.TextureUsageBits.TEXTURE_USAGE_CAN_COPY_FROM_BIT) as RenderingDevice.TextureUsageBits
 
 # user interactivity
 var _points_to_place: Array[Vector2i] = []
@@ -58,7 +58,7 @@ func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST || what == NOTIFICATION_PREDELETE:
 		clean_up_gpu()
 
-func _process(delta: float) -> void:
+func _process(_delta: float) -> void:
 	if not _is_processing and _can_process:
 		_is_processing = true
 		update()
@@ -87,8 +87,8 @@ func merge_images() -> void:
 	var input_width: int = _input_image.get_width()
 	var input_height: int = _input_image.get_height()
 	
-	var startX: int = (output_width - input_width) / 2
-	var startY: int = (output_height - input_height) / 2
+	var startX := (output_width - input_width) / 2. as int
+	var startY := (output_height - input_height) / 2. as int 
 	
 	for x in input_width:
 		for y in input_height:
