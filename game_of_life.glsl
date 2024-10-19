@@ -46,7 +46,7 @@ void main() {
 
     // cellular automata rules
     bool nextState = isAlive;
-    if (isAlive && (liveNeighbours <= 2 || liveNeighbours > 3)) {
+    if (isAlive && (liveNeighbours < 2 || liveNeighbours > 3)) {
         nextState = false;
     } else if (!isAlive && liveNeighbours == 3) {
         nextState = true;

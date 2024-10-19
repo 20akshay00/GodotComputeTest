@@ -1,7 +1,7 @@
 extends Node
 
 @export_category("Settings")
-@export_range(1, 1000) var update_frequency: int = 60
+@export_range(1, 1000) var update_frequency: int = 200
 @export var auto_start: bool = true
 @export var data_texture: Texture2D
 
@@ -136,7 +136,7 @@ func _process(delta: float) -> void:
 		_is_processing = true
 		update()
 		render()
-		get_tree().create_timer(0.2).timeout.connect(func(): _is_processing = false)
+		get_tree().create_timer(1/update_frequency).timeout.connect(func(): _is_processing = false)
 
 	if Input.is_action_just_pressed("start"):
 		_can_process = not _can_process
