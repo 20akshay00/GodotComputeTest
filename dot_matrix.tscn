@@ -1,0 +1,36 @@
+[gd_scene load_steps=8 format=3 uid="uid://b0p4vhysym5kq"]
+
+[ext_resource type="Shader" path="res://dot_matrix.gdshader" id="1_djj5u"]
+[ext_resource type="Texture2D" uid="uid://qpl2jusnfp18" path="res://icon.svg" id="1_xaxhv"]
+[ext_resource type="Texture2D" uid="uid://bmuf7odgei8js" path="res://pixel.tres" id="2_lxu3n"]
+[ext_resource type="Script" path="res://dispatcher.gd" id="4_f11e6"]
+
+[sub_resource type="FastNoiseLite" id="FastNoiseLite_bt271"]
+frequency = 0.0015
+
+[sub_resource type="NoiseTexture2D" id="NoiseTexture2D_rbwdm"]
+width = 1920
+height = 1080
+noise = SubResource("FastNoiseLite_bt271")
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_mib34"]
+shader = ExtResource("1_djj5u")
+shader_parameter/litColor = Color(0.319176, 0.629199, 0.437494, 1)
+shader_parameter/unlitColor = Color(0, 0, 0, 1)
+shader_parameter/gridWidth = 1024
+shader_parameter/pixelTexture = ExtResource("2_lxu3n")
+shader_parameter/binaryDataTexture = SubResource("NoiseTexture2D_rbwdm")
+
+[node name="DotMatrix" type="Node2D"]
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+material = SubResource("ShaderMaterial_mib34")
+position = Vector2(960, 540)
+scale = Vector2(15, 15)
+texture = ExtResource("1_xaxhv")
+
+[node name="Dispatcher" type="Node" parent="." node_paths=PackedStringArray("_renderer")]
+script = ExtResource("4_f11e6")
+auto_start = false
+_compute_shader_path = "res://game_of_life.glsl"
+_renderer = NodePath("../Sprite2D")
