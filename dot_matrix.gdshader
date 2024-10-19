@@ -5,13 +5,14 @@ uniform vec3 litColor: source_color;
 uniform vec3 unlitColor: source_color; 
 
 uniform sampler2D binaryDataTexture;
-uniform int gridWidth; // number of pixels
+uniform vec2 gridSize; // number of pixels
 
 const int cellSize = 8; // in pixels
 const float fadeDistance = 32.0; // in pixels
 
 void fragment() {
-	vec2 scaledUV = UV * float(gridWidth); // scale UV to match grid size; UV goes from 0 to 1.	
+	vec2 scaledUV = UV * gridSize; // scale UV to match grid size; UV goes from 0 to 1.
+	
 	ivec2 cellIndex = ivec2(floor(scaledUV)); // get the cell ID inside which the current UV lies
 	
 	// check if UV lies inside the cell or exactly on border
@@ -19,7 +20,7 @@ void fragment() {
 	bool isInsideCell = all(greaterThanEqual(cellUV, vec2(0.0))) && all(lessThan(cellUV, vec2(1.0))); // consider only one edge to be part of cell; other edge goes to next cell.
 	
 	// normalized UV to index the binary data texture.. why not just use UV? 
-	vec2 binaryDataUV = vec2(cellIndex) / float(gridWidth - 1);
+	vec2 binaryDataUV = vec2(cellIndex) / (gridSize - vec2(1.));
 	
 	// read the data texture
 	float binaryValue = texture(binaryDataTexture, binaryDataUV).r;

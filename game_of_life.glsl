@@ -11,6 +11,7 @@ layout(set = 0, binding = 0, r8) restrict uniform readonly image2D inputImage;
 layout(set = 0, binding = 1, r8) restrict uniform writeonly image2D outputImage;
 layout(set = 0, binding = 2) readonly buffer Parameters {
     int gridWidth;
+    int gridHeight;
 } parameters;
 
 bool isCellAlive(int x, int y) {
@@ -28,7 +29,7 @@ int getLiveNeighbours(int x, int y) {
             int nx = x + i;
             int ny = y + j;
 
-            if (nx >= 0 && nx < parameters.gridWidth && ny >= 0 && ny < parameters.gridWidth) {
+            if (nx >= 0 && nx < parameters.gridWidth && ny >= 0 && ny < parameters.gridHeight) {
                 count += int(isCellAlive(nx, ny));
             }
         }
