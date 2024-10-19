@@ -1,0 +1,3 @@
+- adaptively change grid size during simulation
+- mouse input to place live cells
+- spawn thread independant of process loop to run simulation

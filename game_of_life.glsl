@@ -1,8 +1,6 @@
 #[compute]
 #version 450
 
-const int gridWidth = 1024; // number of cells
-
 const vec4 aliveColor = vec4(1.0, 1.0, 1.0, 1.0);
 const vec4 deadColor = vec4(0.0, 0.0, 0.0, 1.0);
 
@@ -11,6 +9,9 @@ layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
 
 layout(set = 0, binding = 0, r8) restrict uniform readonly image2D inputImage;
 layout(set = 0, binding = 1, r8) restrict uniform writeonly image2D outputImage;
+layout(set = 0, binding = 2) readonly buffer Parameters {
+    int gridWidth;
+} parameters;
 
 bool isCellAlive(int x, int y) {
     vec4 pixel = imageLoad(inputImage, ivec2(x, y));
@@ -27,7 +28,7 @@ int getLiveNeighbours(int x, int y) {
             int nx = x + i;
             int ny = y + j;
 
-            if (nx >= 0 && nx < gridWidth && ny >= 0 && ny < gridWidth) {
+            if (nx >= 0 && nx < parameters.gridWidth && ny >= 0 && ny < parameters.gridWidth) {
                 count += int(isCellAlive(nx, ny));
             }
         }
@@ -38,7 +39,7 @@ int getLiveNeighbours(int x, int y) {
 
 void main() {
     ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
-    if (pos.x >= gridWidth || pos.y >= gridWidth) return;
+    if (pos.x >= parameters.gridWidth || pos.y >= parameters.gridWidth) return;
 
     // get current state of the cell
     bool isAlive = isCellAlive(pos.x, pos.y);

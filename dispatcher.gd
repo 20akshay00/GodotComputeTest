@@ -1,9 +1,10 @@
 extends Node
 
 @export_category("Settings")
-@export_range(1, 1000) var update_frequency: int = 200
+@export_range(1, 1000) var update_frequency: int = 30
 @export var auto_start: bool = true
-@export var data_texture: Texture2D
+@export var initial_data_texture: Texture2D
+@export var grid_size: int = 500
 
 @export_category("Requirements")
 @export_file var _compute_shader_path: String
@@ -13,6 +14,8 @@ var _rd: RenderingDevice
 
 var _input_texture: RID
 var _output_texture: RID
+var _parameters: RID
+
 var _uniform_set: RID
 var _compute_shader: RID
 var _pipeline: RID
@@ -32,6 +35,8 @@ var _can_process: bool = false
 var _texture_usage: RenderingDevice.TextureUsageBits = RenderingDevice.TextureUsageBits.TEXTURE_USAGE_STORAGE_BIT | RenderingDevice.TextureUsageBits.TEXTURE_USAGE_CAN_UPDATE_BIT | RenderingDevice.TextureUsageBits.TEXTURE_USAGE_CAN_COPY_FROM_BIT
 
 func _ready() -> void:
+	_renderer.material.set_shader_parameter("gridWidth", grid_size)
+		
 	create_and_validate_image()
 	setup_compute_shader()
 	
@@ -61,22 +66,22 @@ func merge_images() -> void:
 			if (destX >= 0 && destX < output_width && destY >= 0 && destY < output_height):
 				_output_image.set_pixel(destX, destY, color)
 	
-	_input_image.set_data(1024, 1024, false, Image.FORMAT_L8, _output_image.get_data())
+	_input_image.set_data(grid_size, grid_size, false, Image.FORMAT_L8, _output_image.get_data())
 
 func link_output_texture_to_renderer() -> void:
 	_render_texture = ImageTexture.create_from_image(_output_image)
 	_renderer.material.set_shader_parameter("binaryDataTexture", _render_texture)
 
 func create_and_validate_image() -> void:
-	_output_image = Image.create(1024, 1024, false, Image.FORMAT_L8)
-	if data_texture == null:
+	_output_image = Image.create(grid_size, grid_size, false, Image.FORMAT_L8)
+	if initial_data_texture == null:
 		var noise := FastNoiseLite.new()
 		noise.frequency = 0.1
 		noise.seed = randi()
 		
-		_input_image = noise.get_image(1024, 1024)
+		_input_image = noise.get_image(grid_size, grid_size)
 	else:
-		_input_image = data_texture.get_image()
+		_input_image = initial_data_texture.get_image()
 		
 	merge_images()
 	link_output_texture_to_renderer()
@@ -94,8 +99,8 @@ func create_pipeline() -> void:
 
 func default_texture_format() -> RDTextureFormat:
 	var rdtexture := RDTextureFormat.new()
-	rdtexture.set_width(1024)
-	rdtexture.set_height(1024)
+	rdtexture.set_width(grid_size)
+	rdtexture.set_height(grid_size)
 	rdtexture.format = RenderingDevice.DATA_FORMAT_R8_UNORM
 	rdtexture.usage_bits = _texture_usage
 	
@@ -113,15 +118,28 @@ func create_texture_and_uniform(image: Image, format: RDTextureFormat, binding: 
 	var uniform := RDUniform.new()
 	uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_IMAGE
 	uniform.binding = binding
-	
 	uniform.add_id(texture)
+	
 	_uniform_bindings.append(uniform)
 	
 	return texture
+
+func create_parameters_and_uniform(binding: int) -> RID:
+	var byte_array_int := PackedInt32Array([grid_size]).to_byte_array()
+	var parameter_buffer := _rd.storage_buffer_create(byte_array_int.size(), byte_array_int)
+
+	var uniform := RDUniform.new()
+	uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
+	uniform.binding = binding
+	uniform.add_id(parameter_buffer)
+	
+	_uniform_bindings.append(uniform)
+	return parameter_buffer
 	
 func create_uniforms() -> void:
 	_input_texture = create_texture_and_uniform(_input_image, _input_format, 0)
 	_output_texture = create_texture_and_uniform(_output_image, _output_format, 1)
+	_parameters = create_parameters_and_uniform(2)
 	_uniform_set = _rd.uniform_set_create(_uniform_bindings, _compute_shader, 0)
 	
 func setup_compute_shader() -> void:
@@ -136,7 +154,7 @@ func _process(delta: float) -> void:
 		_is_processing = true
 		update()
 		render()
-		get_tree().create_timer(1/update_frequency).timeout.connect(func(): _is_processing = false)
+		get_tree().create_timer(1./update_frequency).timeout.connect(func(): _is_processing = false)
 
 	if Input.is_action_just_pressed("start"):
 		_can_process = not _can_process
@@ -153,7 +171,7 @@ func render() -> void:
 	_rd. sync ()
 	var bytes := _rd.texture_get_data(_output_texture, 0)
 	_rd.texture_update(_input_texture, 0, bytes)
-	_output_image.set_data(1024, 1024, false, Image.FORMAT_L8, bytes)
+	_output_image.set_data(grid_size, grid_size, false, Image.FORMAT_L8, bytes)
 	_render_texture.update(_output_image)
 	
 func clean_up_gpu() -> void:
