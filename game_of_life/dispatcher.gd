@@ -1,8 +1,7 @@
-@tool
 extends Node2D
 
 @export_category("Settings")
-@export_range(1, 1000) var update_frequency: int = 30
+@export_range(1, 1000) var update_frequency: int = 10
 @export var auto_start: bool = true
 
 var _prev_data := PackedByteArray()
@@ -217,6 +216,7 @@ func clean_up_gpu() -> void:
 	if _rd == null: return
 	_rd.free_rid(_input_texture)
 	_rd.free_rid(_output_texture)
+	_rd.free_rid(_parameters)
 	_rd.free_rid(_uniform_set)
 	_rd.free_rid(_pipeline)
 	_rd.free_rid(_compute_shader)
